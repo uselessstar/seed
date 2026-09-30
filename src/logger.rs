@@ -1,140 +1,154 @@
-use chrono::Local;
-use log::{Level, Log, SetLoggerError, set_logger};
-use owo_colors::OwoColorize;
+use core::fmt::{self, Write as _};
+use std::io::{self, Write};
+
+use chrono::{Datelike, Local, Timelike};
+use log::{Level, LevelFilter, Log, Metadata, Record, SetLoggerError, set_logger};
+use owo_colors::{OwoColorize, Style};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum LoggerError {
     #[error("Error while initializing the logger: {0}")]
-    InitError(SetLoggerError),
+    InitError(#[from] SetLoggerError),
 }
 
 type Result<T> = core::result::Result<T, LoggerError>;
+
+const MAX_LEVEL: LevelFilter = if cfg!(debug_assertions) {
+    LevelFilter::Trace
+} else {
+    LevelFilter::Info
+};
+
+struct StackBuf<'a, const N: usize> {
+    buf: [u8; N],
+    len: usize,
+    inner: &'a mut dyn Write,
+}
+
+impl<'a, const N: usize> StackBuf<'a, N> {
+    fn new(inner: &'a mut dyn Write) -> Self {
+        Self {
+            buf: [0; N],
+            len: 0,
+            inner,
+        }
+    }
+
+    fn drain(&mut self) -> io::Result<()> {
+        let res = self.inner.write_all(&self.buf[..self.len]);
+        self.len = 0;
+        res
+    }
+}
+
+impl<const N: usize> Write for StackBuf<'_, N> {
+    fn write(&mut self, data: &[u8]) -> io::Result<usize> {
+        if data.len() > N - self.len {
+            self.drain()?;
+            if data.len() >= N {
+                return self.inner.write(data);
+            }
+        }
+        self.buf[self.len..self.len + data.len()].copy_from_slice(data);
+        self.len += data.len();
+        Ok(data.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.drain()?;
+        self.inner.flush()
+    }
+}
 
 struct SeedLogger;
 
 static LOGGER: SeedLogger = SeedLogger;
 
 /// Initializes the logger for SEED.
-/// In debug mode, it will log all messages (trace, debug, info, warn, error).
-/// In release mode, it will log only info, warn, and error messages.
+/// Debug: all levels. Release: info, warn and error only.
 ///
 /// # Errors
 /// - Returns [`LoggerError::InitError`] if the logger fails to initialize.
 pub fn init_logger() -> Result<()> {
-    if let Err(e) = set_logger(&LOGGER) {
-        return Err(LoggerError::InitError(e));
-    }
-    #[cfg(debug_assertions)]
-    {
-        log::set_max_level(log::LevelFilter::Trace);
-    }
-    #[cfg(not(debug_assertions))]
-    {
-        log::set_max_level(log::LevelFilter::Info);
-    }
+    set_logger(&LOGGER)?;
+    log::set_max_level(MAX_LEVEL);
     Ok(())
+}
+
+/// Uppercases the target while formatting, without allocating a `String`.
+struct Upper<'a>(&'a str);
+
+impl fmt::Display for Upper<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0
+            .chars()
+            .try_for_each(|c| f.write_char(c.to_ascii_uppercase()))
+    }
+}
+
+/// (level style, target style)
+fn level_style(level: Level) -> Style {
+    match level {
+        Level::Trace | Level::Debug => Style::new().dimmed(),
+        Level::Info => Style::new().cyan(),
+        Level::Warn => Style::new().yellow(),
+        Level::Error => Style::new().red(),
+    }
+}
+
+fn write_record(out: &mut dyn Write, record: &Record) -> io::Result<()> {
+    let mut out = StackBuf::<512>::new(out);
+    let level = record.level();
+    let level_style = level_style(level);
+    let t = Local::now().naive_local();
+
+    write!(
+        out,
+        "[{:04}/{:02}/{:02} {:02}:{:02}:{:02}][{}][{}]",
+        t.year(),
+        t.month(),
+        t.day(),
+        t.hour(),
+        t.minute(),
+        t.second(),
+        level.as_str().style(level_style),
+        Upper(record.target()).bright_white(),
+    )?;
+
+    if cfg!(debug_assertions) {
+        write!(
+            out,
+            " {}",
+            format_args!(
+                "{}:{}",
+                record.file_static().unwrap_or("unknown"),
+                record.line().unwrap_or(0),
+            )
+            .dimmed(),
+        )?;
+    }
+
+    writeln!(out, ": {}", record.args())?;
+    out.drain()
 }
 
 impl Log for SeedLogger {
     fn flush(&self) {}
-    fn enabled(&self, metadata: &log::Metadata) -> bool {
-        #[cfg(debug_assertions)]
-        {
-            metadata.level() <= log::Level::Trace
-        }
-        #[cfg(not(debug_assertions))]
-        {
-            metadata.level() <= log::Level::Info
-        }
-    }
-    fn log(&self, record: &log::Record) {
-        let time = Local::now().format("%Y/%m/%d %H:%M:%S");
-        let level_str = record.level().as_str().to_uppercase();
-        let target_str = record.target().to_uppercase();
-        let args = record.args();
-        #[cfg(debug_assertions)]
-        {
-            let file = record.file_static().unwrap_or("unknown");
-            let line = record.line().unwrap_or(0);
-            let fileline = format_args!("{}:{}", file, line);
-            let msg = match record.level() {
-                Level::Trace | Level::Debug => format_args!(
-                    "[{}][{}][{}] {}: {}",
-                    time,
-                    level_str.dimmed(),
-                    target_str.dimmed(),
-                    fileline.dimmed(),
-                    args
-                ),
-                Level::Info => format_args!(
-                    "[{}][{}][{}] {}: {}",
-                    time,
-                    level_str.cyan(),
-                    target_str.white(),
-                    fileline.dimmed(),
-                    args
-                ),
-                Level::Warn => format_args!(
-                    "[{}][{}][{}] {}: {}",
-                    time,
-                    level_str.yellow(),
-                    target_str.white(),
-                    fileline.dimmed(),
-                    args
-                ),
-                Level::Error => format_args!(
-                    "[{}][{}][{}] {}: {}",
-                    time,
-                    level_str.red(),
-                    target_str.white(),
-                    fileline.dimmed(),
-                    args
-                ),
-            };
 
-            match record.level() {
-                Level::Trace | Level::Debug | Level::Info => println!("{}", msg),
-                Level::Warn | Level::Error => eprintln!("{}", msg),
-            }
+    fn enabled(&self, metadata: &Metadata) -> bool {
+        metadata.level() <= MAX_LEVEL
+    }
+
+    fn log(&self, record: &Record) {
+        if !self.enabled(record.metadata()) {
+            return;
         }
-        #[cfg(not(debug_assertions))]
-        {
-            let msg = match record.level() {
-                Level::Trace | Level::Debug => format_args!(
-                    "[{}][{}][{}]: {}",
-                    time,
-                    level_str.dimmed(),
-                    target_str.dimmed(),
-                    args
-                ),
-                Level::Info => format_args!(
-                    "[{}][{}][{}]: {}",
-                    time,
-                    level_str.cyan(),
-                    target_str.white(),
-                    args
-                ),
-                Level::Warn => format_args!(
-                    "[{}][{}][{}]: {}",
-                    time,
-                    level_str.yellow(),
-                    target_str.white(),
-                    args
-                ),
-                Level::Error => format_args!(
-                    "[{}][{}][{}]: {}",
-                    time,
-                    level_str.red(),
-                    target_str.white(),
-                    args
-                ),
-            };
-            match record.level() {
-                Level::Info => println!("{}", msg),
-                Level::Warn | Level::Error => eprintln!("{}", msg),
-                _ => {}
-            }
-        }
+
+        let _ = if record.level() <= Level::Warn {
+            write_record(&mut io::stderr().lock(), record)
+        } else {
+            write_record(&mut io::stdout().lock(), record)
+        };
     }
 }
