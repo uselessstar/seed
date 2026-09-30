@@ -7,6 +7,7 @@ WORKDIR /app
 COPY Cargo.toml Cargo.lock* ./
 COPY .cargo/config.toml .cargo/config.toml
 COPY src ./src
+COPY ./README.md ./README.md
 RUN --mount=type=cache,target=/app/target \
     --mount=type=cache,target=/usr/local/cargo/registry \
     cargo build --release --target x86_64-unknown-linux-musl && cp target/x86_64-unknown-linux-musl/release/seed /tmp/seed
