@@ -1,13 +1,12 @@
-use log::{SetLoggerError, set_logger};
-use log::{Level, Log};
 use chrono::Local;
+use log::{Level, Log, SetLoggerError, set_logger};
 use owo_colors::OwoColorize;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum LoggerError {
     #[error("Error while initializing the logger: {0}")]
-    InitError(SetLoggerError)
+    InitError(SetLoggerError),
 }
 
 type Result<T> = core::result::Result<T, LoggerError>;
@@ -19,7 +18,7 @@ static LOGGER: SeedLogger = SeedLogger;
 /// Initializes the logger for SEED.
 /// In debug mode, it will log all messages (trace, debug, info, warn, error).
 /// In release mode, it will log only info, warn, and error messages.
-/// 
+///
 /// # Errors
 /// - Returns [`LoggerError::InitError`] if the logger fails to initialize.
 pub fn init_logger() -> Result<()> {
