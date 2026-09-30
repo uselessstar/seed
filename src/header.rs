@@ -1,5 +1,6 @@
 use owo_colors::OwoColorize;
 
+/// ASCII art for the header.
 const ASCII_ART: &str = r#" ██████╗███████╗███████╗██████╗
 ██╔════╝██╔════╝██╔════╝██╔══██╗
 ╚█████╗ █████╗  █████╗  ██║  ██║
