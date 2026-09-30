@@ -8,7 +8,7 @@ const ASCII_ART: &str = r#" ██████╗███████╗██�
 ██████╔╝███████╗███████╗██████╔╝
 ╚═════╝ ╚══════╝╚══════╝╚═════╝ "#;
 
-/// Prints the header.
+/// Prints the header of SEED.
 pub fn print_header() {
     println!();
     for line in ASCII_ART.lines() {
