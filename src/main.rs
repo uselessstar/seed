@@ -1,6 +1,8 @@
 #![doc = include_str!("../README.md")]
 
-fn main() {}
+fn main() {
+    print_header();
+}
 
 use owo_colors::OwoColorize;
 
