@@ -1,14 +1,31 @@
-use log::set_logger;
-#[cfg(debug_assertions)]
+use log::{SetLoggerError, set_logger};
 use log::{Level, Log};
+use chrono::Local;
 use owo_colors::OwoColorize;
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum LoggerError {
+    #[error("Error while initializing the logger: {0}")]
+    InitError(SetLoggerError)
+}
+
+type Result<T> = core::result::Result<T, LoggerError>;
 
 struct SeedLogger;
 
 static LOGGER: SeedLogger = SeedLogger;
 
-pub fn init_logger() {
-    set_logger(&LOGGER).unwrap();
+/// Initializes the logger for SEED.
+/// In debug mode, it will log all messages (trace, debug, info, warn, error).
+/// In release mode, it will log only info, warn, and error messages.
+/// 
+/// # Errors
+/// - Returns [`LoggerError::InitError`] if the logger fails to initialize.
+pub fn init_logger() -> Result<()> {
+    if let Err(e) = set_logger(&LOGGER) {
+        return Err(LoggerError::InitError(e));
+    }
     #[cfg(debug_assertions)]
     {
         log::set_max_level(log::LevelFilter::Trace);
@@ -17,6 +34,7 @@ pub fn init_logger() {
     {
         log::set_max_level(log::LevelFilter::Info);
     }
+    Ok(())
 }
 
 impl Log for SeedLogger {
@@ -32,8 +50,9 @@ impl Log for SeedLogger {
         }
     }
     fn log(&self, record: &log::Record) {
+        let time = Local::now().format("%Y/%m/%d %H:%M:%S");
         let level_str = record.level().as_str().to_uppercase();
-        let target_str = record.target();
+        let target_str = record.target().to_uppercase();
         let args = record.args();
         #[cfg(debug_assertions)]
         {
@@ -42,32 +61,36 @@ impl Log for SeedLogger {
             let fileline = format_args!("{}:{}", file, line);
             let msg = match record.level() {
                 Level::Trace | Level::Debug => format_args!(
-                    "[{}][{}] {}: {}",
+                    "[{}][{}][{}] {}: {}",
+                    time,
                     level_str.dimmed(),
                     target_str.dimmed(),
                     fileline.dimmed(),
-                    args.dimmed()
+                    args
                 ),
                 Level::Info => format_args!(
-                    "[{}][{}] {}: {}",
+                    "[{}][{}][{}] {}: {}",
+                    time,
                     level_str.cyan(),
                     target_str.white(),
                     fileline.dimmed(),
-                    args.cyan()
+                    args
                 ),
                 Level::Warn => format_args!(
-                    "[{}][{}] {}: {}",
+                    "[{}][{}][{}] {}: {}",
+                    time,
                     level_str.yellow(),
                     target_str.white(),
                     fileline.dimmed(),
-                    args.yellow()
+                    args
                 ),
                 Level::Error => format_args!(
-                    "[{}][{}] {}: {}",
+                    "[{}][{}][{}] {}: {}",
+                    time,
                     level_str.red(),
                     target_str.white(),
                     fileline.dimmed(),
-                    args.red()
+                    args
                 ),
             };
 
@@ -80,28 +103,32 @@ impl Log for SeedLogger {
         {
             let msg = match record.level() {
                 Level::Trace | Level::Debug => format_args!(
-                    "[{}][{}]: {}",
+                    "[{}][{}][{}]: {}",
+                    time,
                     level_str.dimmed(),
                     target_str.dimmed(),
-                    args.dimmed()
+                    args
                 ),
                 Level::Info => format_args!(
-                    "[{}][{}]: {}",
+                    "[{}][{}][{}]: {}",
+                    time,
                     level_str.cyan(),
                     target_str.white(),
-                    args.cyan()
+                    args
                 ),
                 Level::Warn => format_args!(
-                    "[{}][{}]: {}",
+                    "[{}][{}][{}]: {}",
+                    time,
                     level_str.yellow(),
                     target_str.white(),
-                    args.yellow()
+                    args
                 ),
                 Level::Error => format_args!(
-                    "[{}][{}]: {}",
+                    "[{}][{}][{}]: {}",
+                    time,
                     level_str.red(),
                     target_str.white(),
-                    args.red()
+                    args
                 ),
             };
             match record.level() {

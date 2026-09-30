@@ -17,6 +17,9 @@ test = false
 [dependencies]
 log = { version = "0.4.34", features = ["alloc", "std"] }
 owo-colors = { version = "4.4.0", features = ["alloc", "supports-colors"] }
+thiserror = "2.0.21"
+anyhow = "1.0.104"
+chrono = {version="0.4.45", features=["alloc", "clock"]}
 
 [lints.clippy]
 alloc_instead_of_core = "warn"
