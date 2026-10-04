@@ -1,6 +1,8 @@
 use core::fmt::{self, Write as _};
 use std::io::{self, Write};
 
+mod time;
+
 use chrono::{Datelike, Local, Timelike};
 use log::{Level, LevelFilter, Log, Metadata, Record, SetLoggerError, set_logger};
 use owo_colors::{OwoColorize, Style};
