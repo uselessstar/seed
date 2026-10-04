@@ -1,4 +1,4 @@
-use std::cell::Cell;
+use core::cell::Cell;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use chrono::{Datelike, Local, TimeZone, Timelike};
