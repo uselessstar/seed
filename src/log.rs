@@ -1,6 +1,7 @@
 use core::fmt::{self, Write as _};
 use std::io::{self, Write};
 
+mod format;
 mod style;
 mod time;
 
