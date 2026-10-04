@@ -13,8 +13,8 @@ pub(super) fn level_parts(level: Level) -> (Style, &'static str) {
     match level {
         Level::Trace => (DIM, "TRACE"),
         Level::Debug => (DIM, "DEBUG"),
-        Level::Info => (INFO, "INFO "),
-        Level::Warn => (WARN, "WARN "),
+        Level::Info => (INFO, "INFO"),
+        Level::Warn => (WARN, "WARN"),
         Level::Error => (ERROR, "ERROR"),
     }
 }
