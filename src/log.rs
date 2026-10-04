@@ -78,7 +78,7 @@ impl Log for SeedLogger {
             let _ = io::stderr().lock().write_all(buf);
         };
 
-        BUF.with(|cell| match cell.try_borrow_mut() {
+        let done = BUF.try_with(|cell| match cell.try_borrow_mut() {
             Ok(mut buf) => {
                 emit(&mut buf);
                 // Do not keep a huge buffer alive after one giant message.
@@ -89,5 +89,10 @@ impl Log for SeedLogger {
             // A `Display` impl logged while we were formatting: use a scratch buffer.
             Err(_) => emit(&mut Vec::new()),
         });
+
+        // Thread-local already destroyed (thread is exiting): use a scratch buffer.
+        if done.is_err() {
+            emit(&mut Vec::new());
+        }
     }
 }
