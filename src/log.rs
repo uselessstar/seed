@@ -1,6 +1,7 @@
 use core::fmt::{self, Write as _};
 use std::io::{self, Write};
 
+mod style;
 mod time;
 
 use chrono::{Datelike, Local, Timelike};
