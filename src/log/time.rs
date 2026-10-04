@@ -44,3 +44,34 @@ pub(super) fn timestamp() -> [u8; 21] {
         b
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_timestamp_format() {
+        let ts = timestamp();
+
+        assert_eq!(ts.len(), 21);
+        assert_eq!(ts[0], b'[');
+        assert_eq!(ts[20], b']');
+        assert_eq!(ts[5], b'/');
+        assert_eq!(ts[8], b'/');
+        assert_eq!(ts[11], b' ');
+        assert_eq!(ts[14], b':');
+        assert_eq!(ts[17], b':');
+
+        // Every remaining position must be a digit.
+        for i in [1, 2, 3, 4, 6, 7, 9, 10, 12, 13, 15, 16, 18, 19] {
+            assert!(ts[i].is_ascii_digit(), "byte {i} is not a digit");
+        }
+    }
+
+    #[test]
+    fn test_put_pads_with_zeros() {
+        let mut b = [0u8; 4];
+        put(&mut b, 7);
+        assert_eq!(&b, b"0007");
+    }
+}
