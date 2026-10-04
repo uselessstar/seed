@@ -3,6 +3,7 @@ use owo_colors::Style;
 
 pub(super) const DIM: Style = Style::new().dimmed();
 pub(super) const TARGET: Style = Style::new().bright_white();
+pub(super) const PUNCT: Style = Style::new().white().bold();
 
 const INFO: Style = Style::new().cyan();
 const WARN: Style = Style::new().yellow();

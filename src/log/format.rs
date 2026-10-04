@@ -4,7 +4,7 @@ use std::io::Write;
 use log::Record;
 use owo_colors::{OwoColorize, Style};
 
-use super::style::{DIM, TARGET, level_parts};
+use super::style::{DIM, PUNCT, TARGET, level_parts};
 use super::time::timestamp;
 
 /// Uppercases the target while formatting, without allocating a `String`.
@@ -30,16 +30,23 @@ fn paint(buf: &mut Vec<u8>, color: bool, style: Style, text: impl Display) {
 pub(super) fn format_record(buf: &mut Vec<u8>, record: &Record, color: bool) {
     let (style, name) = level_parts(record.level());
 
-    buf.extend_from_slice(&timestamp());
+    // The timestamp is always ASCII, so this never fails.
+    let ts = timestamp();
+    paint(
+        buf,
+        color,
+        PUNCT,
+        core::str::from_utf8(&ts).unwrap_or_default(),
+    );
 
-    buf.push(b'[');
+    paint(buf, color, PUNCT, "[");
     paint(buf, color, style, name);
-    buf.extend_from_slice(b"][");
+    paint(buf, color, PUNCT, "][");
     paint(buf, color, TARGET, Upper(record.target()));
-    buf.push(b']');
+    paint(buf, color, PUNCT, "]");
 
     if cfg!(debug_assertions) {
-        buf.push(b' ');
+        paint(buf, color, PUNCT, " ");
         paint(
             buf,
             color,
@@ -52,7 +59,9 @@ pub(super) fn format_record(buf: &mut Vec<u8>, record: &Record, color: bool) {
         );
     }
 
-    buf.extend_from_slice(b": ");
+    paint(buf, color, PUNCT, ": ");
+
+    // The message stays unstyled.
     match record.args().as_str() {
         Some(s) => buf.extend_from_slice(s.as_bytes()),
         None => {
